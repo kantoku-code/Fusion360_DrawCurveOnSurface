@@ -14,9 +14,11 @@ https://knowledge.autodesk.com/ja/support/fusion-360/troubleshooting/caas/sfdcar
 ## 使用:
 アドイン実行すると、スケッチ作業時の「スケッチ」タブの「作成」の一番下に「面上の線」
 コマンドが追加されます
+
 ![追加コマンド](./images/toolpanel.png)
 
 コマンド実行時は以下のダイアログが出ます。
+
 ![ダイアログ](./images/dialog.png)
 
 予め線を描く面を選択し、境界の頂点を2ヶ所選択することで、2点間の最短を結ぶ線を
@@ -24,7 +26,9 @@ https://knowledge.autodesk.com/ja/support/fusion-360/troubleshooting/caas/sfdcar
 
 出来上がる線は「3Dジオメトリを含める」コマンドで作成したものと同等です。
 コンテキストメニューの「リンクを解除」を行う事で、移動が可能となります。
+
 ![ダイアログ](./images/removeLink.png)
+
 
 ## 動作:
 以下の環境にて確認。
