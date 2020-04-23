@@ -1,0 +1,13 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"addin",
+	"id":	"03e1a4cf-1cab-45ab-93d4-ef7c4aa1fcf9",
+	"author":	"",
+	"description":	{
+		"":	"スケッチ内で面上に線を描きます"
+	},
+	"version":	"0.0.1",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
