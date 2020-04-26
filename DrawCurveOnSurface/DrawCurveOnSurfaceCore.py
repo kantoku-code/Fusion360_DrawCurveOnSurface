@@ -11,9 +11,16 @@ from .Fusion360Utilities.Fusion360CommandBase import Fusion360CommandBase
 _selSurfInfo = ['dlgSelSurf','サポート面','線を描く面を選択']
 _surfIpt = adsk.core.SelectionCommandInput.cast(None)
 
-_selPointInfo = ['dlgSelPoint','頂点','頂点を選択']
+_selPointInfo = ['dlgSelPoint','始点終点','始点と終点を選択']
 _pointIpt = adsk.core.SelectionCommandInput.cast(None)
 
+_radFilterInfo = [
+    'dlgFilter',
+    'フィルター',
+    ['頂点のみ', False],
+    ['境界線上', True]]
+
+_filterIpt = adsk.core.RadioButtonGroupCommandInput.cast(None)
 
 
 class DrawCurveOnSurfaceCore(Fusion360CommandBase):
@@ -29,12 +36,15 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
         ao = AppObjects()
         try:
             global _fact, _surfIpt, _pointIpt
+
+            pnt1 = self.getPointByEntityType(_pointIpt.selection(0))
+            pnt2 = self.getPointByEntityType(_pointIpt.selection(1))
+
             if self._fact:
                 self._fact.preview(
                     _surfIpt.selection(0).entity,
-                    _pointIpt.selection(0).entity,
-                    _pointIpt.selection(1).entity,
-                    self._skt)
+                    pnt1,
+                    pnt2)
 
         except:
             if ao.ui:
@@ -46,22 +56,37 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
     def on_input_changed(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs, changed_input, input_values):
         # 面をクリアすると点もクリア
         global _surfIpt, _pointIpt
-
         if changed_input == _surfIpt:
             if _surfIpt.selectionCount < 1:
                 _pointIpt.clearSelection()
             else:
                 _pointIpt.hasFocus = True
+        
+        # フィルターの変更
+        # エッジが選択済みで'頂点のみ'に切り替えた際、選択要素解除すべき？
+        global _filterIpt
+        if changed_input == _filterIpt:
+            filter = _filterIpt.selectedItem.index
+            _pointIpt.clearSelectionFilter()
+            if filter == 0:
+                _pointIpt.addSelectionFilter('Vertices')
+            elif  filter == 1:
+                _pointIpt.addSelectionFilter('Vertices')
+                _pointIpt.addSelectionFilter('Edges')
 
     def on_execute(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs, args, input_values):
         ao = AppObjects()
         try:
             global _fact, _surfIpt, _pointIpt
+
+            pnt1 = self.getPointByEntityType(_pointIpt.selection(0))
+            pnt2 = self.getPointByEntityType(_pointIpt.selection(1))
+
             if self._fact:
                 self._fact.execute(
                     _surfIpt.selection(0).entity,
-                    _pointIpt.selection(0).entity,
-                    _pointIpt.selection(1).entity,
+                    pnt1,
+                    pnt2,
                     self._skt)
 
         except:
@@ -108,6 +133,30 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
         _pointIpt.setSelectionLimits(0)
         _pointIpt.addSelectionFilter('Vertices')
 
+        # point filter
+        global _radFilterInfo, _filterIpt
+        _filterIpt = inputs.addRadioButtonGroupCommandInput(
+            _radFilterInfo[0], _radFilterInfo[1])
+        filters = _filterIpt.listItems
+        filters.add(_radFilterInfo[2][0], _radFilterInfo[2][1])
+        filters.add(_radFilterInfo[3][0], _radFilterInfo[3][1])
+
+    # -- Support fanction --
+    def getPointByEntityType(
+        self,
+        sel :adsk.core.Selection) -> adsk.core.Point3D:
+
+        ent = sel.entity
+        t = ent.objectType.split('::')[-1]
+        if t == 'BRepVertex':
+            return ent.geometry
+
+        elif t == 'BRepEdge':
+            eva :adsk.core.CurveEvaluator3D = ent.geometry.evaluator
+            _, prm = eva.getParameterAtPoint(sel.point)
+            _, pnt = eva.getPointAtParameter(prm)
+            return pnt
+
 
     # -- Support class --
     class PreSelectHandler(adsk.core.SelectionEventHandler):
@@ -124,6 +173,7 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
                     args.firingEvent.activeInput)
                 if not actIpt: return
 
+
                 global _surfIpt, _pointIpt
 
                 # -- surf --
@@ -135,7 +185,6 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
                         args.isSelectable = True
 
                     return
-
 
                 # -- point --
                 if actIpt == _pointIpt:
@@ -149,18 +198,48 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
                     if _surfIpt.selectionCount < 1:
                         return
 
-                    # onFace?
-                    vtx :adsk.fusion.BRepVertex = args.selection.entity
+                    # filter type
                     face :adsk.fusion.BRepFace = _surfIpt.selection(0).entity
-                    vtxs = [v for v in face.vertices]
-                    if vtx in vtxs:
-                        args.isSelectable = True
+
+                    global _filterIpt
+                    filter = _filterIpt.selectedItem.index
+                    if filter == 0:
+                        if self.isOnVertex(args.selection.entity, face):
+                            args.isSelectable = True
+
+                    elif  filter == 1:
+                        if self.isOnVertex(args.selection.entity, face):
+                            args.isSelectable = True
+                        if self.isOnEdge(args.selection.entity, face):
+                            args.isSelectable = True
 
                     return
 
             except:
                 ao = AppObjects()
                 ao.ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
+        def isOnEdge(
+            self,
+            ent,
+            face :adsk.fusion.BRepFace) -> bool:
+
+            edges = [e for e in face.edges]
+            if ent in edges:
+                return True
+            else:
+                return False
+
+        def isOnVertex(
+            self,
+            ent,
+            face :adsk.fusion.BRepFace) -> bool:
+
+            vtxs = [v for v in face.vertices]
+            if ent in vtxs:
+                return True
+            else:
+                return False
 
     class ValidateInputHandler(adsk.core.ValidateInputsEventHandler):
         def __init__(self):
@@ -178,6 +257,9 @@ class DrawCurveOnSurfaceFactry():
 
     def __init__(self):
         self.refreshCG()
+
+    def __del__(self):
+        self.removeCG()
 
     def removeCG(self):
         ao = AppObjects()
@@ -200,24 +282,17 @@ class DrawCurveOnSurfaceFactry():
     def preview(
         self,
         surf :adsk.fusion.BRepFace,
-        vtx1 :adsk.fusion.BRepVertex,
-        vtx2 :adsk.fusion.BRepVertex,
-        skt :adsk.fusion.Sketch
+        pnt1 :adsk.core.Point3D,
+        pnt2 :adsk.core.Point3D,
         ):
 
         self.refreshCG()
 
-        crvs = self.__getCrv3d(
-            surf.evaluator,
-            vtx1.geometry,
-            vtx2.geometry)
+        crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
         if len(crvs) < 1: return
 
         red = adsk.core.Color.create(255,0,0,255)
         solidRed = adsk.fusion.CustomGraphicsSolidColorEffect.create(red)
-
-        mat3d :adsk.core.Matrix3D = skt.transform
-        mat3d.invert()
 
         for crv in crvs:
             if hasattr(crv,'asNurbsCurve'):
@@ -229,16 +304,13 @@ class DrawCurveOnSurfaceFactry():
     def execute(
         self,
         surf :adsk.fusion.BRepFace,
-        vtx1 :adsk.fusion.BRepVertex,
-        vtx2 :adsk.fusion.BRepVertex,
+        pnt1 :adsk.core.Point3D,
+        pnt2 :adsk.core.Point3D,
         skt :adsk.fusion.Sketch
         ):
 
         evaSurf = surf.evaluator
-        crvs = self.__getCrv3d(
-            evaSurf,
-            vtx1.geometry,
-            vtx2.geometry)
+        crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
         
         if len(crvs) < 1: return
 
@@ -246,14 +318,12 @@ class DrawCurveOnSurfaceFactry():
         mat3d :adsk.core.Matrix3D = skt.transform
         mat3d.invert()
 
+        skt.isComputeDeferred = True
         for crv in crvs:
             if hasattr(crv,'asNurbsCurve'):
                 crv = crv.asNurbsCurve
 
             if crv.objectType == 'adsk::core::NurbsCurve3D':
-                # 精度悪い
-                # sktElm = sktCrvs.sketchFittedSplines.addByNurbsCurve(crv)
-
                 evaCrv = crv.evaluator
                 _, sprm, eprm = evaCrv.getParameterExtents()
                 _, pnts = evaCrv.getStrokes(sprm, eprm, 0.01)
@@ -271,10 +341,7 @@ class DrawCurveOnSurfaceFactry():
                 e = crv.endPoint
                 sktElm = sktCrvs.sketchLines.addByTwoPoints(s,e)
 
-            sktElm.isFixed = True
-            skt.include(sktElm)
-            sktElm.deleteMe()
-
+        skt.isComputeDeferred = False
         return
 
     def __getCrv3d(

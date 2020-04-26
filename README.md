@@ -21,13 +21,12 @@ https://knowledge.autodesk.com/ja/support/fusion-360/troubleshooting/caas/sfdcar
 
 ![ダイアログ](./images/dialog.png)
 
-予め線を描く面を選択し、境界の頂点を2ヶ所選択することで、2点間の最短を結ぶ線を
-面上に描きます。
+予め線を描く面を選択し、面の境界/頂点を2ヶ所選択することで、2点間の(UV的に)最短を結ぶ線を面上に描きます。
+出来上がる線は3Dスケッチとして作成したものと同等のものになります。
+コントロールポイントが表示され見えにくい場合は、スケッチパレットの「点の表示」のチェックを
+外す事で見やすくなります。
 
-出来上がる線は「3Dジオメトリを含める」コマンドで作成したものと同等です。
-コンテキストメニューの「リンクを解除」を行う事で、移動が可能となります。
-
-![ダイアログ](./images/removeLink.png)
+![ダイアログ](./images/hidePoint.png)
 
 
 ## 動作:
@@ -39,9 +38,8 @@ https://knowledge.autodesk.com/ja/support/fusion-360/troubleshooting/caas/sfdcar
 MIT
 
 ## 残された問題:
-+ 境界上の点以外の選択を可能にする
++ 面上を自由に選択可能にする
 + プレビューの線が細い
-+ Macでの動作未確認
 
 ## 謝辞:
 + こちらの便利な[フレームワーク](https://github.com/tapnair/Fusion360AddinSkeleton)を試用しました。
