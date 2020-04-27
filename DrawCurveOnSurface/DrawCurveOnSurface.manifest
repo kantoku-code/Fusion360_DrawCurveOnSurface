@@ -6,7 +6,7 @@
 	"description":	{
 		"":	"スケッチ作業スペースで面上に線を描きます"
 	},
-	"version":	"0.0.2",
+	"version":	"0.0.3",
 	"runOnStartup":	false,
 	"supportedOS":	"windows|mac",
 	"editEnabled":	true

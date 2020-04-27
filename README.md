@@ -28,11 +28,16 @@ https://knowledge.autodesk.com/ja/support/fusion-360/troubleshooting/caas/sfdcar
 
 ![ダイアログ](./images/hidePoint.png)
 
+トレランスの設定に関わらず、作成される曲線は
++ 頂点選択時は、曲線の端点は頂点と一致します。
++ 境界選択時は、曲線の端点は境界線上と一致します。
++ 各コントロールポイントは選択面と一致します。
+
 
 ## 動作:
 以下の環境にて確認。
 + Fusion360 Ver2.0.8156
-+ Windows10 64bit Home
++ Windows10 64bit Home/Pro
 
 ## ライセンス:
 MIT

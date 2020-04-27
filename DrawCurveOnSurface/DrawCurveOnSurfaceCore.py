@@ -19,9 +19,15 @@ _radFilterInfo = [
     'フィルター',
     ['頂点のみ', False],
     ['境界線上', True]]
-
 _filterIpt = adsk.core.RadioButtonGroupCommandInput.cast(None)
 
+_radToleranceInfo = [
+    'dlgTolerance',
+    'トレランス',
+    ['High', False, 0.0001],
+    ['Mid', False, 0.001],
+    ['Low', True,0.01]]
+_tolIpt = adsk.core.RadioButtonGroupCommandInput.cast(None)
 
 class DrawCurveOnSurfaceCore(Fusion360CommandBase):
     _handlers = []
@@ -82,12 +88,17 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
             pnt1 = self.getPointByEntityType(_pointIpt.selection(0))
             pnt2 = self.getPointByEntityType(_pointIpt.selection(1))
 
+            global _radToleranceInfo, _tolIpt
+            tol = _radToleranceInfo[_tolIpt.selectedItem.index +2][2]
+
             if self._fact:
                 self._fact.execute(
                     _surfIpt.selection(0).entity,
                     pnt1,
                     pnt2,
-                    self._skt)
+                    self._skt,
+                    tol
+                    )
 
         except:
             if ao.ui:
@@ -95,6 +106,9 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
 
     def on_create(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs):
         ao = AppObjects()
+
+        # 事前選択禁止
+        ao.ui.activeSelections.clear()
 
         # sketch
         skt = adsk.fusion.Sketch.cast(ao.app.activeEditObject)
@@ -132,6 +146,7 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
             _selPointInfo[0], _selPointInfo[1], _selPointInfo[2])
         _pointIpt.setSelectionLimits(0)
         _pointIpt.addSelectionFilter('Vertices')
+        _pointIpt.addSelectionFilter('Edges')
 
         # point filter
         global _radFilterInfo, _filterIpt
@@ -140,6 +155,15 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
         filters = _filterIpt.listItems
         filters.add(_radFilterInfo[2][0], _radFilterInfo[2][1])
         filters.add(_radFilterInfo[3][0], _radFilterInfo[3][1])
+
+        # curve tolerance
+        global _radToleranceInfo, _tolIpt 
+        _tolIpt = inputs.addRadioButtonGroupCommandInput(
+            _radToleranceInfo[0], _radToleranceInfo[1])
+        tols = _tolIpt.listItems
+        tols.add(_radToleranceInfo[2][0], _radToleranceInfo[2][1])
+        tols.add(_radToleranceInfo[3][0], _radToleranceInfo[3][1])
+        tols.add(_radToleranceInfo[4][0], _radToleranceInfo[4][1])
 
     # -- Support fanction --
     def getPointByEntityType(
@@ -156,7 +180,6 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
             _, prm = eva.getParameterAtPoint(sel.point)
             _, pnt = eva.getPointAtParameter(prm)
             return pnt
-
 
     # -- Support class --
     class PreSelectHandler(adsk.core.SelectionEventHandler):
@@ -288,7 +311,9 @@ class DrawCurveOnSurfaceFactry():
 
         self.refreshCG()
 
-        crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
+        tmpBrep = adsk.fusion.TemporaryBRepManager.get()
+        tmpSurf = tmpBrep.copy(surf)
+        crvs = self.__getCrv3d(tmpSurf.faces[0].evaluator, pnt1, pnt2)
         if len(crvs) < 1: return
 
         red = adsk.core.Color.create(255,0,0,255)
@@ -298,6 +323,7 @@ class DrawCurveOnSurfaceFactry():
             if hasattr(crv,'asNurbsCurve'):
                 crv = crv.asNurbsCurve
 
+            # crv.transformBy(mat)
             crvCg = self._cgGroup.addCurve(crv)
             crvCg.color = solidRed
 
@@ -306,12 +332,16 @@ class DrawCurveOnSurfaceFactry():
         surf :adsk.fusion.BRepFace,
         pnt1 :adsk.core.Point3D,
         pnt2 :adsk.core.Point3D,
-        skt :adsk.fusion.Sketch
+        skt :adsk.fusion.Sketch,
+        tolerance :float = 0.01
         ):
 
+        tmpBrep = adsk.fusion.TemporaryBRepManager.get()
+        tmpSurf = tmpBrep.copy(surf)
+        crvs = self.__getCrv3d(tmpSurf.faces[0].evaluator, pnt1, pnt2)
+
         evaSurf = surf.evaluator
-        crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
-        
+        # crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
         if len(crvs) < 1: return
 
         sktCrvs = skt.sketchCurves
@@ -326,7 +356,7 @@ class DrawCurveOnSurfaceFactry():
             if crv.objectType == 'adsk::core::NurbsCurve3D':
                 evaCrv = crv.evaluator
                 _, sprm, eprm = evaCrv.getParameterExtents()
-                _, pnts = evaCrv.getStrokes(sprm, eprm, 0.01)
+                _, pnts = evaCrv.getStrokes(sprm, eprm, tolerance)
                 _, prms = evaSurf.getParametersAtPoints(pnts)
                 _, pnts = evaSurf.getPointsAtParameters(prms)
 
@@ -352,6 +382,12 @@ class DrawCurveOnSurfaceFactry():
         ) -> list:
 
         res1, prm1 = eva.getParameterAtPoint(pnt1)
+        hhh = eva.parametricRange()
+        maxPrm = hhh.maxPoint
+        minPrm = hhh.minPoint
+        _,maxP = eva.getPointAtParameter(maxPrm)
+        _,minP = eva.getPointAtParameter(minPrm)
+
         if not res1 or not eva.isParameterOnFace(prm1):
             return []
 
