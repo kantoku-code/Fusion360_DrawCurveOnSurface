@@ -14,19 +14,13 @@ _surfIpt = adsk.core.SelectionCommandInput.cast(None)
 _selPointInfo = ['dlgSelPoint','始点終点','始点と終点を選択']
 _pointIpt = adsk.core.SelectionCommandInput.cast(None)
 
-_radFilterInfo = [
-    'dlgFilter',
-    'フィルター',
-    ['頂点のみ', False],
-    ['境界線上', True]]
-_filterIpt = adsk.core.RadioButtonGroupCommandInput.cast(None)
-
 _radToleranceInfo = [
     'dlgTolerance',
     'トレランス',
+    adsk.core.DropDownStyles.TextListDropDownStyle,
     ['High', False, 0.0001],
     ['Mid', False, 0.001],
-    ['Low', True,0.01]]
+    ['Low', True, 0.01]]
 _tolIpt = adsk.core.RadioButtonGroupCommandInput.cast(None)
 
 class DrawCurveOnSurfaceCore(Fusion360CommandBase):
@@ -67,18 +61,6 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
                 _pointIpt.clearSelection()
             else:
                 _pointIpt.hasFocus = True
-        
-        # フィルターの変更
-        # エッジが選択済みで'頂点のみ'に切り替えた際、選択要素解除すべき？
-        global _filterIpt
-        if changed_input == _filterIpt:
-            filter = _filterIpt.selectedItem.index
-            _pointIpt.clearSelectionFilter()
-            if filter == 0:
-                _pointIpt.addSelectionFilter('Vertices')
-            elif  filter == 1:
-                _pointIpt.addSelectionFilter('Vertices')
-                _pointIpt.addSelectionFilter('Edges')
 
     def on_execute(self, command: adsk.core.Command, inputs: adsk.core.CommandInputs, args, input_values):
         ao = AppObjects()
@@ -89,7 +71,7 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
             pnt2 = self.getPointByEntityType(_pointIpt.selection(1))
 
             global _radToleranceInfo, _tolIpt
-            tol = _radToleranceInfo[_tolIpt.selectedItem.index +2][2]
+            tol = _radToleranceInfo[_tolIpt.selectedItem.index + 3][2]
 
             if self._fact:
                 self._fact.execute(
@@ -148,22 +130,15 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
         _pointIpt.addSelectionFilter('Vertices')
         _pointIpt.addSelectionFilter('Edges')
 
-        # point filter
-        global _radFilterInfo, _filterIpt
-        _filterIpt = inputs.addRadioButtonGroupCommandInput(
-            _radFilterInfo[0], _radFilterInfo[1])
-        filters = _filterIpt.listItems
-        filters.add(_radFilterInfo[2][0], _radFilterInfo[2][1])
-        filters.add(_radFilterInfo[3][0], _radFilterInfo[3][1])
-
         # curve tolerance
-        global _radToleranceInfo, _tolIpt 
-        _tolIpt = inputs.addRadioButtonGroupCommandInput(
-            _radToleranceInfo[0], _radToleranceInfo[1])
+        global _radToleranceInfo, _tolIpt
+        _tolIpt = inputs.addDropDownCommandInput(
+            _radToleranceInfo[0], _radToleranceInfo[1], _radToleranceInfo[2])
         tols = _tolIpt.listItems
-        tols.add(_radToleranceInfo[2][0], _radToleranceInfo[2][1])
         tols.add(_radToleranceInfo[3][0], _radToleranceInfo[3][1])
         tols.add(_radToleranceInfo[4][0], _radToleranceInfo[4][1])
+        tols.add(_radToleranceInfo[5][0], _radToleranceInfo[5][1])
+
 
     # -- Support fanction --
     def getPointByEntityType(
@@ -224,17 +199,8 @@ class DrawCurveOnSurfaceCore(Fusion360CommandBase):
                     # filter type
                     face :adsk.fusion.BRepFace = _surfIpt.selection(0).entity
 
-                    global _filterIpt
-                    filter = _filterIpt.selectedItem.index
-                    if filter == 0:
-                        if self.isOnVertex(args.selection.entity, face):
-                            args.isSelectable = True
-
-                    elif  filter == 1:
-                        if self.isOnVertex(args.selection.entity, face):
-                            args.isSelectable = True
-                        if self.isOnEdge(args.selection.entity, face):
-                            args.isSelectable = True
+                    if self.isOnVertex(args.selection.entity, face) or self.isOnEdge(args.selection.entity, face):
+                        args.isSelectable = True
 
                     return
 
@@ -323,9 +289,9 @@ class DrawCurveOnSurfaceFactry():
             if hasattr(crv,'asNurbsCurve'):
                 crv = crv.asNurbsCurve
 
-            # crv.transformBy(mat)
             crvCg = self._cgGroup.addCurve(crv)
             crvCg.color = solidRed
+            crvCg.weight = 2
 
     def execute(
         self,
@@ -341,7 +307,6 @@ class DrawCurveOnSurfaceFactry():
         crvs = self.__getCrv3d(tmpSurf.faces[0].evaluator, pnt1, pnt2)
 
         evaSurf = surf.evaluator
-        # crvs = self.__getCrv3d(surf.evaluator, pnt1, pnt2)
         if len(crvs) < 1: return
 
         sktCrvs = skt.sketchCurves
@@ -382,11 +347,6 @@ class DrawCurveOnSurfaceFactry():
         ) -> list:
 
         res1, prm1 = eva.getParameterAtPoint(pnt1)
-        hhh = eva.parametricRange()
-        maxPrm = hhh.maxPoint
-        minPrm = hhh.minPoint
-        _,maxP = eva.getPointAtParameter(maxPrm)
-        _,minP = eva.getPointAtParameter(minPrm)
 
         if not res1 or not eva.isParameterOnFace(prm1):
             return []

@@ -44,7 +44,6 @@ MIT
 
 ## 残された問題:
 + 面上を自由に選択可能にする
-+ プレビューの線が細い
 
 ## 謝辞:
 + こちらの便利な[フレームワーク](https://github.com/tapnair/Fusion360AddinSkeleton)を試用しました。
